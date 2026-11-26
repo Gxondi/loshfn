@@ -8,19 +8,23 @@
   <title>本地听书</title>
   <style>
     * { box-sizing: border-box; margin: 0; padding: 0; -webkit-tap-highlight-color: transparent; }
-    body { background: #121212; color: #e5e5e5; font-family: -apple-system, sans-serif; padding: 16px; max-width: 500px; margin: 0 auto; }
-    button { background: #2a2a2a; color: #fff; border: none; border-radius: 8px; padding: 8px 12px; font-size: 14px; cursor: pointer; }
-    button:active { background: #3b82f6; }
-    button.active { background: #2563eb; font-weight: bold; }
-    .card { background: #1e1e1e; border-radius: 12px; padding: 16px; margin-bottom: 14px; }
+    body { background: #121212; color: #e5e5e5; font-family: -apple-system, sans-serif; padding: 14px; max-width: 500px; margin: 0 auto; }
+    button, .btn { background: #2a2a2a; color: #fff; border: none; border-radius: 8px; padding: 8px 12px; font-size: 13px; cursor: pointer; display: inline-block; text-align: center; }
+    button:active, .btn:active { background: #3b82f6; }
+    .btn-primary { background: #2563eb; font-weight: bold; }
+    .card { background: #1e1e1e; border-radius: 12px; padding: 14px; margin-bottom: 12px; }
     .row { display: flex; justify-content: space-between; align-items: center; gap: 8px; }
-    .title { font-size: 16px; font-weight: bold; margin-bottom: 12px; line-height: 1.4; word-break: break-all; }
-    input[type="range"] { width: 100%; margin: 8px 0; accent-color: #3b82f6; }
-    input[type="number"] { width: 54px; background: #2a2a2a; color: #fff; border: 1px solid #444; border-radius: 6px; padding: 4px 6px; font-size: 14px; text-align: center; }
-    .controls { display: flex; justify-content: space-around; align-items: center; margin-top: 12px; }
-    .play-btn { width: 58px; height: 58px; border-radius: 50%; background: #2563eb; font-size: 16px; font-weight: bold; }
-    .list { max-height: 38vh; overflow-y: auto; }
-    .item { padding: 12px 14px; border-bottom: 1px solid #2a2a2a; font-size: 14px; color: #bbb; }
+    .title { font-size: 16px; font-weight: bold; margin-bottom: 10px; line-height: 1.4; word-break: break-all; }
+    .sub-title { font-size: 12px; color: #60a5fa; margin-bottom: 4px; }
+    input[type="range"] { width: 100%; margin: 6px 0; accent-color: #3b82f6; }
+    input[type="number"] { width: 52px; background: #2a2a2a; color: #fff; border: 1px solid #444; border-radius: 6px; padding: 4px; font-size: 14px; text-align: center; }
+    .controls { display: flex; justify-content: space-around; align-items: center; margin-top: 10px; }
+    .play-btn { width: 56px; height: 56px; border-radius: 50%; background: #2563eb; font-size: 15px; font-weight: bold; }
+    .dir-bar { display: flex; gap: 8px; overflow-x: auto; padding-bottom: 4px; }
+    .dir-chip { white-space: nowrap; padding: 7px 12px; border-radius: 16px; background: #2a2a2a; font-size: 13px; color: #ccc; border: 1px solid transparent; }
+    .dir-chip.active { background: #1d4ed8; color: #fff; font-weight: bold; border-color: #60a5fa; }
+    .list { max-height: 36vh; overflow-y: auto; }
+    .item { padding: 11px 14px; border-bottom: 1px solid #2a2a2a; font-size: 14px; color: #bbb; }
     .item.current { color: #60a5fa; font-weight: bold; background: #252b36; }
   </style>
 </head>
@@ -29,17 +33,30 @@
   <audio id="player"></audio>
 
   <!-- 顶部栏 -->
-  <div class="row" style="margin-bottom: 14px;">
-    <h3 id="bookTitle">本地听书 (0章)</h3>
-    <label style="background:#2563eb; padding:8px 14px; border-radius:8px; font-size:14px; font-weight:bold;">
-      导入音频
-      <input id="fileInput" type="file" multiple accept="audio/*" style="display:none;" />
-    </label>
+  <div class="row" style="margin-bottom: 12px;">
+    <h3 id="appTitle" style="font-size:17px;">本地听书</h3>
+    <div style="display:flex; gap:6px;">
+      <label class="btn btn-primary">
+        导入目录
+        <input id="dirInput" type="file" webkitdirectory directory multiple style="display:none;" />
+      </label>
+      <label class="btn">
+        选文件
+        <input id="fileInput" type="file" multiple accept="audio/*" style="display:none;" />
+      </label>
+    </div>
   </div>
 
-  <!-- 播放控制区 -->
+  <!-- 目录列表区（导入后显示，点击目录切换书籍） -->
+  <div id="dirSection" class="card" style="display:none; padding: 10px 12px;">
+    <div style="font-size:12px; color:#888; margin-bottom:8px;">已读取目录（点击切换）：</div>
+    <div id="dirList" class="dir-bar"></div>
+  </div>
+
+  <!-- 当前播放卡片 -->
   <div class="card">
-    <div id="trackName" class="title">点击右上角选择本地音频文件</div>
+    <div id="curDirLabel" class="sub-title">未选择目录</div>
+    <div id="trackName" class="title">点击右上角「导入目录」选择本地文件夹</div>
     <input id="progress" type="range" min="0" max="100" value="0" />
     <div class="row" style="font-size:12px; color:#888;">
       <span id="curTime">00:00</span>
@@ -54,12 +71,11 @@
     </div>
   </div>
 
-  <!-- 功能设置区 -->
-  <div class="card" style="display:flex; flex-direction:column; gap:14px;">
-    <!-- 倍速 -->
+  <!-- 倍速、跳过片头片尾、定时关闭 -->
+  <div class="card" style="display:flex; flex-direction:column; gap:12px;">
     <div class="row">
-      <span>倍速：<strong id="speedText" style="color:#60a5fa;">1.2x</strong></span>
-      <div class="row">
+      <span style="font-size:14px;">倍速：<strong id="speedText" style="color:#60a5fa;">1.2x</strong></span>
+      <div class="row" style="gap:5px;">
         <button onclick="setSpeed(speed - 0.1)">-0.1</button>
         <button onclick="setSpeed(speed + 0.1)">+0.1</button>
         <button onclick="setSpeed(1.0)">1.0x</button>
@@ -68,16 +84,14 @@
       </div>
     </div>
 
-    <!-- 跳过片头片尾 -->
     <div class="row">
-      <label style="font-size:14px;">跳过片头 <input id="introInput" type="number" min="0" value="15" /> 秒</label>
-      <label style="font-size:14px;">跳过片尾 <input id="outroInput" type="number" min="0" value="10" /> 秒</label>
+      <label style="font-size:13px;">跳过片头 <input id="introInput" type="number" min="0" value="15" /> 秒</label>
+      <label style="font-size:13px;">跳过片尾 <input id="outroInput" type="number" min="0" value="10" /> 秒</label>
     </div>
 
-    <!-- 定时关闭 -->
     <div>
-      <div style="font-size:14px; margin-bottom:8px;">定时：<span id="sleepText" style="color:#60a5fa;">未开启</span></div>
-      <div class="row" style="flex-wrap:wrap; justify-content:flex-start;">
+      <div style="font-size:13px; margin-bottom:6px;">定时：<span id="sleepText" style="color:#60a5fa;">未开启</span></div>
+      <div class="row" style="flex-wrap:wrap; justify-content:flex-start; gap:6px;">
         <button onclick="setSleep(0)">关闭</button>
         <button onclick="setSleep(-1)">播完本集</button>
         <button onclick="setSleep(15)">15分</button>
@@ -88,16 +102,22 @@
     </div>
   </div>
 
-  <!-- 章节列表 -->
+  <!-- 当前目录下的章节列表 -->
   <div id="playlistBox" class="card list" style="padding:0;"></div>
 
   <script>
     const audio = document.getElementById('player');
-    const KEY = 'simple_audiobook_cfg';
-    let cfg = JSON.parse(localStorage.getItem(KEY) || '{}');
+    const KEY = 'simple_audiobook_dir_v2';
+    let cfg = JSON.parse(localStorage.getItem(KEY) || '{"books":{}}');
+    if (!cfg.books) cfg.books = {};
 
+    // library 结构: { "目录名": [ { name, url }, ... ] }
+    let library = {};
+    let dirNames = [];
+    let currentDir = '';
     let tracks = [];
     let idx = 0;
+
     let speed = cfg.speed || 1.2;
     let skipIntro = cfg.skipIntro ?? 15;
     let skipOutro = cfg.skipOutro ?? 10;
@@ -106,11 +126,9 @@
     let isSkipping = false;
     let lastSave = 0;
 
-    // 初始化输入框数值
     document.getElementById('speedText').innerText = speed.toFixed(1) + 'x';
     document.getElementById('introInput').value = skipIntro;
     document.getElementById('outroInput').value = skipOutro;
-
     document.getElementById('introInput').onchange = e => { skipIntro = Math.max(0, +e.target.value); saveCfg(); };
     document.getElementById('outroInput').onchange = e => { skipOutro = Math.max(0, +e.target.value); saveCfg(); };
 
@@ -131,36 +149,96 @@
     }
 
     function saveCfg(pos = audio.currentTime) {
-      localStorage.setItem(KEY, JSON.stringify({
-        speed, skipIntro, skipOutro,
-        lastName: tracks[idx]?.name || cfg.lastName,
-        lastPos: pos
-      }));
+      if (currentDir && tracks[idx]) {
+        cfg.lastDir = currentDir;
+        cfg.books[currentDir] = { lastName: tracks[idx].name, lastPos: pos };
+      }
+      cfg.speed = speed;
+      cfg.skipIntro = skipIntro;
+      cfg.skipOutro = skipOutro;
+      localStorage.setItem(KEY, JSON.stringify(cfg));
     }
 
-    // 导入音频并排序
-    document.getElementById('fileInput').onchange = e => {
-      const files = Array.from(e.target.files).filter(f => f.type.startsWith('audio/') || /\.(mp3|m4a|aac|wav|ogg|flac)$/i.test(f.name));
-      if (!files.length) return;
-      tracks.forEach(t => URL.revokeObjectURL(t.url));
-      tracks = files
-        .map(f => ({ name: f.name.replace(/\.[^/.]+$/, ''), url: URL.createObjectURL(f) }))
-        .sort((a, b) => collator.compare(normName(a.name), normName(b.name)));
+    // 处理目录或文件导入
+    function handleFiles(fileList) {
+      const audioFiles = Array.from(fileList).filter(f =>
+        f.type.startsWith('audio/') || /\.(mp3|m4a|aac|wav|ogg|flac|wma)$/i.test(f.name)
+      );
+      if (!audioFiles.length) {
+        alert('所选文件夹内未找到音频文件');
+        return;
+      }
 
-      document.getElementById('bookTitle').innerText = `本地听书 (${tracks.length}章)`;
-      const savedIdx = tracks.findIndex(t => t.name === cfg.lastName);
-      playIndex(savedIdx >= 0 ? savedIdx : 0, savedIdx >= 0 ? cfg.lastPos : 0);
-    };
+      // 释放旧音频链接
+      Object.values(library).flat().forEach(t => URL.revokeObjectURL(t.url));
+      library = {};
+
+      // 按目录分组
+      for (const f of audioFiles) {
+        let dirName = '已选音频';
+        if (f.webkitRelativePath) {
+          const parts = f.webkitRelativePath.split('/');
+          // 取音频文件所在的直接父目录名
+          if (parts.length >= 2) {
+            dirName = parts[parts.length - 2];
+          }
+        }
+        if (!library[dirName]) library[dirName] = [];
+        library[dirName].push({
+          name: f.name.replace(/\.[^/.]+$/, ''),
+          url: URL.createObjectURL(f)
+        });
+      }
+
+      // 对目录名和每个目录下的章节分别排序
+      dirNames = Object.keys(library).sort((a, b) => collator.compare(normName(a), normName(b)));
+      for (const d of dirNames) {
+        library[d].sort((a, b) => collator.compare(normName(a.name), normName(b.name)));
+      }
+
+      document.getElementById('dirSection').style.display = 'block';
+      // 优先恢复上次听的目录，否则选第一个目录
+      const targetDir = (cfg.lastDir && library[cfg.lastDir]) ? cfg.lastDir : dirNames[0];
+      selectDirectory(targetDir, true);
+    }
+
+    document.getElementById('dirInput').onchange = e => handleFiles(e.target.files);
+    document.getElementById('fileInput').onchange = e => handleFiles(e.target.files);
+
+    function renderDirs() {
+      const box = document.getElementById('dirList');
+      box.innerHTML = dirNames.map(d =>
+        `<div class="dir-chip ${d === currentDir ? 'active' : ''}" onclick="selectDirectory('${d.replace(/'/g, "\\'")}', true)">
+          📁 ${d} (${library[d].length})
+        </div>`
+      ).join('');
+    }
+
+    // 切换目录并播放
+    function selectDirectory(dirName, autoPlay = true) {
+      if (!library[dirName]) return;
+      currentDir = dirName;
+      tracks = library[dirName];
+      document.getElementById('curDirLabel').innerText = `📁 ${currentDir}（共 ${tracks.length} 章）`;
+      renderDirs();
+
+      const bookRecord = cfg.books[currentDir] || {};
+      const savedIdx = tracks.findIndex(t => t.name === bookRecord.lastName);
+      const startIdx = savedIdx >= 0 ? savedIdx : 0;
+      const startPos = savedIdx >= 0 ? (bookRecord.lastPos || 0) : 0;
+
+      playIndex(startIdx, startPos, autoPlay);
+    }
 
     function renderList() {
       const box = document.getElementById('playlistBox');
       box.innerHTML = tracks.map((t, i) =>
-        `<div class="item ${i === idx ? 'current' : ''}" onclick="playIndex(${i})">${i + 1}. ${t.name}</div>`
+        `<div class="item ${i === idx ? 'current' : ''}" onclick="playIndex(${i}, 0, true)">${i + 1}. ${t.name}</div>`
       ).join('');
       box.children[idx]?.scrollIntoView({ block: 'nearest' });
     }
 
-    function playIndex(i, resumePos = 0) {
+    function playIndex(i, resumePos = 0, autoPlay = true) {
       if (!tracks.length) return;
       idx = (i + tracks.length) % tracks.length;
       isSkipping = false;
@@ -173,11 +251,11 @@
         audio.preservesPitch = true;
         if (resumePos > skipIntro) {
           audio.currentTime = resumePos;
-          cfg.lastPos = 0;
         } else if (audio.duration > skipIntro + skipOutro) {
           audio.currentTime = skipIntro;
         }
-        audio.play();
+        if (autoPlay) audio.play();
+        saveCfg(audio.currentTime);
         updateMediaSession();
       };
     }
@@ -189,7 +267,7 @@
         audio.pause();
         return;
       }
-      playIndex(idx + 1);
+      playIndex(idx + 1, 0, true);
     }
 
     function togglePlay() {
@@ -215,7 +293,6 @@
       else { stopAfterChapter = false; sleepEnd = Date.now() + min * 60000; }
     }
 
-    // 进度更新、跳过片尾、定时检查、自动存断点
     audio.ontimeupdate = () => {
       if (!audio.duration) return;
       const cur = audio.currentTime, dur = audio.duration;
@@ -224,7 +301,6 @@
       document.getElementById('curTime').innerText = fmt(cur);
       document.getElementById('durTime').innerText = fmt(dur);
 
-      // 定时关闭检查
       if (sleepEnd) {
         const left = Math.ceil((sleepEnd - Date.now()) / 1000);
         if (left <= 0) {
@@ -236,14 +312,12 @@
         document.getElementById('sleepText').innerText = `剩余 ${fmt(left)}`;
       }
 
-      // 跳过片尾
       if (dur > skipIntro + skipOutro && dur - cur <= skipOutro && !isSkipping) {
         isSkipping = true;
         nextTrack();
         return;
       }
 
-      // 每3秒存一次断点
       if (Date.now() - lastSave > 3000) {
         lastSave = Date.now();
         saveCfg(cur);
@@ -260,13 +334,15 @@
       return `${String(Math.floor(s / 60)).padStart(2, '0')}:${String(Math.floor(s % 60)).padStart(2, '0')}`;
     }
 
-    // 锁屏媒体控制
     function updateMediaSession() {
       if ('mediaSession' in navigator) {
-        navigator.mediaSession.metadata = new MediaMetadata({ title: tracks[idx].name, artist: '本地听书' });
+        navigator.mediaSession.metadata = new MediaMetadata({
+          title: tracks[idx].name,
+          artist: currentDir || '本地听书'
+        });
         navigator.mediaSession.setActionHandler('play', () => audio.play());
         navigator.mediaSession.setActionHandler('pause', () => audio.pause());
-        navigator.mediaSession.setActionHandler('previoustrack', () => playIndex(idx - 1));
+        navigator.mediaSession.setActionHandler('previoustrack', () => playIndex(idx - 1, 0, true));
         navigator.mediaSession.setActionHandler('nexttrack', nextTrack);
       }
     }
