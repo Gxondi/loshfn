@@ -5,7 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
   <meta name="apple-mobile-web-app-capable" content="yes" />
   <meta name="mobile-web-app-capable" content="yes" />
-  <title>本地听书</title>
+  <title>私人听书</title>
   <style>
     * { box-sizing: border-box; margin: 0; padding: 0; -webkit-tap-highlight-color: transparent; }
     body { background: #121212; color: #e5e5e5; font-family: -apple-system, sans-serif; padding: 14px; max-width: 500px; margin: 0 auto; }
@@ -14,49 +14,67 @@
     .btn-primary { background: #2563eb; font-weight: bold; }
     .card { background: #1e1e1e; border-radius: 12px; padding: 14px; margin-bottom: 12px; }
     .row { display: flex; justify-content: space-between; align-items: center; gap: 8px; }
-    .title { font-size: 16px; font-weight: bold; margin-bottom: 10px; line-height: 1.4; word-break: break-all; }
-    .sub-title { font-size: 12px; color: #60a5fa; margin-bottom: 4px; }
+    .tabs { display: flex; background: #1e1e1e; border-radius: 10px; padding: 4px; margin-bottom: 12px; }
+    .tab { flex: 1; text-align: center; padding: 8px; border-radius: 8px; font-size: 14px; color: #888; font-weight: bold; }
+    .tab.active { background: #2563eb; color: #fff; }
+    input[type="text"], input[type="url"] { width: 100%; background: #2a2a2a; color: #fff; border: 1px solid #3a3a3a; border-radius: 8px; padding: 9px 12px; font-size: 14px; outline: none; }
     input[type="range"] { width: 100%; margin: 6px 0; accent-color: #3b82f6; }
     input[type="number"] { width: 52px; background: #2a2a2a; color: #fff; border: 1px solid #444; border-radius: 6px; padding: 4px; font-size: 14px; text-align: center; }
+    .title { font-size: 16px; font-weight: bold; margin-bottom: 8px; line-height: 1.4; word-break: break-all; }
+    .sub-title { font-size: 12px; color: #60a5fa; margin-bottom: 4px; }
     .controls { display: flex; justify-content: space-around; align-items: center; margin-top: 10px; }
     .play-btn { width: 56px; height: 56px; border-radius: 50%; background: #2563eb; font-size: 15px; font-weight: bold; }
     .dir-bar { display: flex; gap: 8px; overflow-x: auto; padding-bottom: 4px; }
-    .dir-chip { white-space: nowrap; padding: 7px 12px; border-radius: 16px; background: #2a2a2a; font-size: 13px; color: #ccc; border: 1px solid transparent; }
-    .dir-chip.active { background: #1d4ed8; color: #fff; font-weight: bold; border-color: #60a5fa; }
+    .dir-chip { white-space: nowrap; padding: 6px 12px; border-radius: 16px; background: #2a2a2a; font-size: 13px; color: #ccc; }
+    .dir-chip.active { background: #1d4ed8; color: #fff; font-weight: bold; }
     .list { max-height: 36vh; overflow-y: auto; }
-    .item { padding: 11px 14px; border-bottom: 1px solid #2a2a2a; font-size: 14px; color: #bbb; }
+    .item { padding: 11px 14px; border-bottom: 1px solid #2a2a2a; font-size: 14px; color: #bbb; display: flex; justify-content: space-between; align-items: center; gap: 8px; }
     .item.current { color: #60a5fa; font-weight: bold; background: #252b36; }
+    .book-card { display: flex; gap: 10px; padding: 10px; border-bottom: 1px solid #2a2a2a; align-items: center; }
+    .book-cover { width: 48px; height: 48px; border-radius: 6px; background: #333; object-fit: cover; flex-shrink: 0; }
   </style>
 </head>
 <body>
 
   <audio id="player"></audio>
 
-  <!-- 顶部栏 -->
-  <div class="row" style="margin-bottom: 12px;">
-    <h3 id="appTitle" style="font-size:17px;">本地听书</h3>
-    <div style="display:flex; gap:6px;">
-      <label class="btn btn-primary">
+  <!-- 模式切换栏 -->
+  <div class="tabs">
+    <div id="tabLocal" class="tab active" onclick="switchMode('local')">📁 本地目录</div>
+    <div id="tabOnline" class="tab" onclick="switchMode('online')">🌐 在线搜书</div>
+  </div>
+
+  <!-- 模式1：本地目录面板 -->
+  <div id="panelLocal">
+    <div class="row" style="margin-bottom: 10px;">
+      <input id="localSearch" type="text" placeholder="搜索已导入的章节名..." oninput="renderList()" />
+      <label class="btn btn-primary" style="white-space:nowrap;">
         导入目录
         <input id="dirInput" type="file" webkitdirectory directory multiple style="display:none;" />
       </label>
-      <label class="btn">
-        选文件
-        <input id="fileInput" type="file" multiple accept="audio/*" style="display:none;" />
-      </label>
+    </div>
+    <div id="dirSection" class="card" style="display:none; padding: 10px 12px;">
+      <div id="dirList" class="dir-bar"></div>
     </div>
   </div>
 
-  <!-- 目录列表区（导入后显示，点击目录切换书籍） -->
-  <div id="dirSection" class="card" style="display:none; padding: 10px 12px;">
-    <div style="font-size:12px; color:#888; margin-bottom:8px;">已读取目录（点击切换）：</div>
-    <div id="dirList" class="dir-bar"></div>
+  <!-- 模式2：在线搜书面板 -->
+  <div id="panelOnline" style="display:none;">
+    <div class="card" style="padding: 10px 12px;">
+      <div style="font-size:12px; color:#888; margin-bottom:6px;">Worker 代理地址（已自动配置）：</div>
+      <input id="apiBaseInput" type="url" placeholder="https://book-api.han1026184.workers.dev" onchange="saveApiBase(this.value)" />
+    </div>
+    <div class="row" style="margin-bottom: 10px;">
+      <input id="onlineQuery" type="text" placeholder="输入书名 / 播客 / 关键词..." onkeydown="if(event.key==='Enter') searchOnline()" />
+      <button class="btn-primary" style="white-space:nowrap; padding: 9px 14px;" onclick="searchOnline()">搜索</button>
+    </div>
+    <div id="searchResultsBox" class="card list" style="display:none; padding:0; max-height: 28vh;"></div>
   </div>
 
-  <!-- 当前播放卡片 -->
+  <!-- 通用播放器控制区 -->
   <div class="card">
-    <div id="curDirLabel" class="sub-title">未选择目录</div>
-    <div id="trackName" class="title">点击右上角「导入目录」选择本地文件夹</div>
+    <div id="curBookLabel" class="sub-title">准备就绪</div>
+    <div id="trackName" class="title">请选择本地目录或在线搜索书籍</div>
     <input id="progress" type="range" min="0" max="100" value="0" />
     <div class="row" style="font-size:12px; color:#888;">
       <span id="curTime">00:00</span>
@@ -102,19 +120,22 @@
     </div>
   </div>
 
-  <!-- 当前目录下的章节列表 -->
+  <!-- 章节列表 -->
   <div id="playlistBox" class="card list" style="padding:0;"></div>
 
   <script>
     const audio = document.getElementById('player');
-    const KEY = 'simple_audiobook_dir_v2';
+    const DEFAULT_API = 'https://book-api.han1026184.workers.dev';
+    const KEY = 'my_audiobook_v3';
     let cfg = JSON.parse(localStorage.getItem(KEY) || '{"books":{}}');
     if (!cfg.books) cfg.books = {};
+    if (!cfg.apiBase) cfg.apiBase = DEFAULT_API;
 
-    // library 结构: { "目录名": [ { name, url }, ... ] }
+    let mode = 'local';
     let library = {};
     let dirNames = [];
-    let currentDir = '';
+    let currentBookId = '';
+    let currentBookTitle = '';
     let tracks = [];
     let idx = 0;
 
@@ -126,13 +147,27 @@
     let isSkipping = false;
     let lastSave = 0;
 
+    document.getElementById('apiBaseInput').value = cfg.apiBase;
     document.getElementById('speedText').innerText = speed.toFixed(1) + 'x';
     document.getElementById('introInput').value = skipIntro;
     document.getElementById('outroInput').value = skipOutro;
     document.getElementById('introInput').onchange = e => { skipIntro = Math.max(0, +e.target.value); saveCfg(); };
     document.getElementById('outroInput').onchange = e => { skipOutro = Math.max(0, +e.target.value); saveCfg(); };
 
-    // 自然排序 + 中文数字转换
+    function saveApiBase(val) {
+      cfg.apiBase = (val.trim() || DEFAULT_API).replace(/\/+$/, '');
+      document.getElementById('apiBaseInput').value = cfg.apiBase;
+      saveCfg();
+    }
+
+    function switchMode(m) {
+      mode = m;
+      document.getElementById('tabLocal').className = m === 'local' ? 'tab active' : 'tab';
+      document.getElementById('tabOnline').className = m === 'online' ? 'tab active' : 'tab';
+      document.getElementById('panelLocal').style.display = m === 'local' ? 'block' : 'none';
+      document.getElementById('panelOnline').style.display = m === 'online' ? 'block' : 'none';
+    }
+
     const collator = new Intl.Collator('zh-CN', { numeric: true, sensitivity: 'base' });
     function normName(str) {
       const map = { 零:0, 一:1, 二:2, 三:3, 四:4, 五:5, 六:6, 七:7, 八:8, 九:9 };
@@ -149,9 +184,8 @@
     }
 
     function saveCfg(pos = audio.currentTime) {
-      if (currentDir && tracks[idx]) {
-        cfg.lastDir = currentDir;
-        cfg.books[currentDir] = { lastName: tracks[idx].name, lastPos: pos };
+      if (currentBookId && tracks[idx]) {
+        cfg.books[currentBookId] = { lastName: tracks[idx].name, lastPos: pos };
       }
       cfg.speed = speed;
       cfg.skipIntro = skipIntro;
@@ -159,86 +193,125 @@
       localStorage.setItem(KEY, JSON.stringify(cfg));
     }
 
-    // 处理目录或文件导入
-    function handleFiles(fileList) {
-      const audioFiles = Array.from(fileList).filter(f =>
+    // --- 本地目录导入 ---
+    document.getElementById('dirInput').onchange = e => {
+      const files = Array.from(e.target.files).filter(f =>
         f.type.startsWith('audio/') || /\.(mp3|m4a|aac|wav|ogg|flac|wma)$/i.test(f.name)
       );
-      if (!audioFiles.length) {
-        alert('所选文件夹内未找到音频文件');
-        return;
-      }
+      if (!files.length) return alert('未找到音频文件');
 
-      // 释放旧音频链接
       Object.values(library).flat().forEach(t => URL.revokeObjectURL(t.url));
       library = {};
 
-      // 按目录分组
-      for (const f of audioFiles) {
+      for (const f of files) {
         let dirName = '已选音频';
         if (f.webkitRelativePath) {
           const parts = f.webkitRelativePath.split('/');
-          // 取音频文件所在的直接父目录名
-          if (parts.length >= 2) {
-            dirName = parts[parts.length - 2];
-          }
+          if (parts.length >= 2) dirName = parts[parts.length - 2];
         }
         if (!library[dirName]) library[dirName] = [];
         library[dirName].push({
           name: f.name.replace(/\.[^/.]+$/, ''),
-          url: URL.createObjectURL(f)
+          url: URL.createObjectURL(f),
+          isOnline: false
         });
       }
 
-      // 对目录名和每个目录下的章节分别排序
       dirNames = Object.keys(library).sort((a, b) => collator.compare(normName(a), normName(b)));
       for (const d of dirNames) {
         library[d].sort((a, b) => collator.compare(normName(a.name), normName(b.name)));
       }
 
       document.getElementById('dirSection').style.display = 'block';
-      // 优先恢复上次听的目录，否则选第一个目录
-      const targetDir = (cfg.lastDir && library[cfg.lastDir]) ? cfg.lastDir : dirNames[0];
-      selectDirectory(targetDir, true);
-    }
+      selectLocalDir(dirNames[0]);
+    };
 
-    document.getElementById('dirInput').onchange = e => handleFiles(e.target.files);
-    document.getElementById('fileInput').onchange = e => handleFiles(e.target.files);
-
-    function renderDirs() {
-      const box = document.getElementById('dirList');
-      box.innerHTML = dirNames.map(d =>
-        `<div class="dir-chip ${d === currentDir ? 'active' : ''}" onclick="selectDirectory('${d.replace(/'/g, "\\'")}', true)">
-          📁 ${d} (${library[d].length})
-        </div>`
-      ).join('');
-    }
-
-    // 切换目录并播放
-    function selectDirectory(dirName, autoPlay = true) {
-      if (!library[dirName]) return;
-      currentDir = dirName;
+    function selectLocalDir(dirName) {
+      currentBookId = 'local_' + dirName;
+      currentBookTitle = dirName;
       tracks = library[dirName];
-      document.getElementById('curDirLabel').innerText = `📁 ${currentDir}（共 ${tracks.length} 章）`;
-      renderDirs();
+      document.getElementById('dirList').innerHTML = dirNames.map(d =>
+        `<div class="dir-chip ${d === dirName ? 'active' : ''}" onclick="selectLocalDir('${d.replace(/'/g, "\\'")}')">📁 ${d} (${library[d].length})</div>`
+      ).join('');
+      loadBookTracks();
+    }
 
-      const bookRecord = cfg.books[currentDir] || {};
-      const savedIdx = tracks.findIndex(t => t.name === bookRecord.lastName);
-      const startIdx = savedIdx >= 0 ? savedIdx : 0;
-      const startPos = savedIdx >= 0 ? (bookRecord.lastPos || 0) : 0;
+    // --- 在线搜书逻辑 ---
+    async function searchOnline() {
+      const base = (cfg.apiBase || DEFAULT_API).replace(/\/+$/, '');
+      const q = document.getElementById('onlineQuery').value.trim();
+      if (!q) return;
 
-      playIndex(startIdx, startPos, autoPlay);
+      const box = document.getElementById('searchResultsBox');
+      box.style.display = 'block';
+      box.innerHTML = '<div style="padding:14px; color:#888;">正在搜索...</div>';
+
+      try {
+        const res = await fetch(`${base}/api/search?q=${encodeURIComponent(q)}`);
+        const list = await res.json();
+        if (!list.length) {
+          box.innerHTML = '<div style="padding:14px; color:#888;">未找到相关结果</div>';
+          return;
+        }
+        window._searchResults = list;
+        box.innerHTML = list.map((b, i) => `
+          <div class="book-card" onclick="openOnlineBook(${i})">
+            <img class="book-cover" src="${b.cover || ''}" onerror="this.style.display='none'" />
+            <div style="flex:1; min-width:0;">
+              <div style="font-size:14px; font-weight:bold; color:#eee; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;">${b.title}</div>
+              <div style="font-size:12px; color:#888; margin-top:4px;">${b.author || '未知播讲'}</div>
+            </div>
+          </div>
+        `).join('');
+      } catch (e) {
+        box.innerHTML = `<div style="padding:14px; color:#f87171;">请求失败：${e.message}</div>`;
+      }
+    }
+
+    async function openOnlineBook(index) {
+      const book = window._searchResults[index];
+      const base = (cfg.apiBase || DEFAULT_API).replace(/\/+$/, '');
+      document.getElementById('curBookLabel').innerText = `🌐 正在加载目录：${book.title}...`;
+
+      try {
+        const res = await fetch(`${base}/api/chapters?url=${encodeURIComponent(book.chaptersUrl)}&source=${book.source}`);
+        const chapters = await res.json();
+        if (!chapters.length) return alert('该书暂无可播放章节');
+
+        currentBookId = 'online_' + book.id;
+        currentBookTitle = book.title;
+        tracks = chapters.map(c => ({
+          name: c.name,
+          url: `${base}/api/stream?url=${encodeURIComponent(c.rawUrl)}`,
+          isOnline: true
+        }));
+        document.getElementById('searchResultsBox').style.display = 'none';
+        loadBookTracks();
+      } catch (e) {
+        alert('获取章节失败：' + e.message);
+      }
+    }
+
+    function loadBookTracks() {
+      document.getElementById('curBookLabel').innerText = `${currentBookTitle}（共 ${tracks.length} 章）`;
+      const record = cfg.books[currentBookId] || {};
+      const savedIdx = tracks.findIndex(t => t.name === record.lastName);
+      playIndex(savedIdx >= 0 ? savedIdx : 0, savedIdx >= 0 ? (record.lastPos || 0) : 0);
     }
 
     function renderList() {
+      const kw = (mode === 'local' ? document.getElementById('localSearch').value : '').trim().toLowerCase();
       const box = document.getElementById('playlistBox');
-      box.innerHTML = tracks.map((t, i) =>
-        `<div class="item ${i === idx ? 'current' : ''}" onclick="playIndex(${i}, 0, true)">${i + 1}. ${t.name}</div>`
-      ).join('');
-      box.children[idx]?.scrollIntoView({ block: 'nearest' });
+      box.innerHTML = tracks.map((t, i) => {
+        if (kw && !t.name.toLowerCase().includes(kw)) return '';
+        return `<div class="item ${i === idx ? 'current' : ''}" onclick="playIndex(${i}, 0)">
+          <span style="overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">${i + 1}. ${t.name}</span>
+        </div>`;
+      }).join('');
+      if (!kw) box.children[idx]?.scrollIntoView({ block: 'nearest' });
     }
 
-    function playIndex(i, resumePos = 0, autoPlay = true) {
+    function playIndex(i, resumePos = 0) {
       if (!tracks.length) return;
       idx = (i + tracks.length) % tracks.length;
       isSkipping = false;
@@ -254,7 +327,7 @@
         } else if (audio.duration > skipIntro + skipOutro) {
           audio.currentTime = skipIntro;
         }
-        if (autoPlay) audio.play();
+        audio.play().catch(() => {});
         saveCfg(audio.currentTime);
         updateMediaSession();
       };
@@ -267,7 +340,7 @@
         audio.pause();
         return;
       }
-      playIndex(idx + 1, 0, true);
+      playIndex(idx + 1, 0);
     }
 
     function togglePlay() {
@@ -338,11 +411,11 @@
       if ('mediaSession' in navigator) {
         navigator.mediaSession.metadata = new MediaMetadata({
           title: tracks[idx].name,
-          artist: currentDir || '本地听书'
+          artist: currentBookTitle || '私人听书'
         });
         navigator.mediaSession.setActionHandler('play', () => audio.play());
         navigator.mediaSession.setActionHandler('pause', () => audio.pause());
-        navigator.mediaSession.setActionHandler('previoustrack', () => playIndex(idx - 1, 0, true));
+        navigator.mediaSession.setActionHandler('previoustrack', () => playIndex(idx - 1, 0));
         navigator.mediaSession.setActionHandler('nexttrack', nextTrack);
       }
     }
